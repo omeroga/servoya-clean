@@ -7,8 +7,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✔ Script Engine – דינמי לחלוטין, עובד לכל נישה, בנוי ל־15 שניות, מותאם לחוות תוכן ברמה של 100K$ בחודש
-export async function generateScriptV3(productData = {}) {
+export async function generateScript(productData = {}) {
   try {
     const {
       title = "",
@@ -27,20 +26,7 @@ export async function generateScriptV3(productData = {}) {
     const safeTrends = trend_keywords || "";
 
     const prompt = `
-You are Servoya Script Engine V3.
-Your job: produce a **high-converting short-form script** for 12–15 second product videos.
-The script must work for TikTok, Reels, and YouTube Shorts.
-
-Rules:
-- ALWAYS 15 seconds structure.
-- 1 punch opening hook (max 10 words)
-- 3–5 micro-benefits (each 4–7 words)
-- 1 strong CTA
-- No emojis
-- No bullet lists
-- No long sentences
-- Write in marketing style that increases retention.
-- Fit ANY category dynamically (beauty, gadgets, home, pets, tools, fitness, etc.)
+Generate a 15-second short-form marketing script.
 
 Product Title: ${safeTitle}
 Bullets: ${safeBullets}
@@ -48,8 +34,14 @@ Description: ${safeDescription}
 Category: ${safeCategory}
 Trend Keywords: ${safeTrends}
 
-Write the script as 1 paragraph with line breaks between sentences.
-Make sure the pacing fits 15 seconds exactly.
+Rules:
+- 15 seconds pacing
+- 1 strong hook (max 10 words)
+- 3-5 micro benefits
+- 1 CTA
+- No emojis
+- Short sentences
+- High retention
     `;
 
     const response = await client.chat.completions.create({
@@ -64,7 +56,7 @@ Make sure the pacing fits 15 seconds exactly.
     return result || "Discover why thousands love this product. Try it now.";
 
   } catch (err) {
-    console.error("❌ Script Engine V3 Error:", err);
+    console.error("❌ Script Engine Error:", err);
     return "Discover why thousands love this product. Try it now.";
   }
 }

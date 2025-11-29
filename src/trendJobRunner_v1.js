@@ -3,7 +3,6 @@ import { selectProduct } from "./productSelector_v1.js";
 import { mapProductToPrompt } from "./productMapper.js";
 import { generateScript } from "./scriptEngine_v3.js";
 import { fetchAudio } from "./audioFetcher_v1.js";
-import { generateVideo } from "./videoEngine_cloud.js";
 import { supabase } from "./supabaseClient.js";
 
 export async function runFullJob(options = {}) {

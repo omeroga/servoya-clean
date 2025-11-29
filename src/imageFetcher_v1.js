@@ -66,7 +66,7 @@ export async function fetchImagesToFiles(imageUrls = [], options = {}) {
 }
 
 /**
- * כמו fetchImagesToFiles אבל מחזיר Buffers בזיכרון, בלי לכתוב לדיסק.
+ * מחזיר Buffers בזיכרון, בלי לכתוב לדיסק.
  */
 export async function fetchImagesToBuffers(imageUrls = [], options = {}) {
   const maxImages = options.maxImages || 5;
@@ -101,4 +101,43 @@ export async function fetchImagesToBuffers(imageUrls = [], options = {}) {
   }
 
   return buffers;
+}
+
+/**
+ * ✨ הפונקציה החסרה - עכשיו בפנים
+ * מקבל ASIN ומחזיר URLים של תמונות מהמוצר דרך Keepa
+ * ולאחר מכן מוריד אותן לקבצים זמניים
+ */
+export async function fetchImagesForProduct(asin) {
+  try {
+    const url = `https://api.keepa.com/product?key=${process.env.KEEPA_API_KEY}&domain=1&asin=${asin}`;
+    const res = await fetch(url);
+
+    if (!res.ok) {
+      console.error("fetchImagesForProduct: keepa error", res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    if (!data || !data.products || !data.products[0]) {
+      console.error("fetchImagesForProduct: no keepa product found");
+      return [];
+    }
+
+    const product = data.products[0];
+    if (!product.imagesCSV) {
+      console.error("fetchImagesForProduct: no imagesCSV");
+      return [];
+    }
+
+    const imageUrls = product.imagesCSV
+      .split(",")
+      .map(img => `https://images-na.ssl-images-amazon.com/images/I/${img}.jpg`);
+
+    return await fetchImagesToFiles(imageUrls, { maxImages: 5 });
+
+  } catch (err) {
+    console.error("fetchImagesForProduct error:", err.message);
+    return [];
+  }
 }

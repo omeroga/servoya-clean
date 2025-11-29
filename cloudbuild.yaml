@@ -1,0 +1,33 @@
+steps:
+  # ✅ Step 1 - Build Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args: [
+      "build",
+      "-t", "us-central1-docker.pkg.dev/servoya-cloud-worker/cloud-run-source-deploy/servoya-cloud-worker-v2:latest",
+      "."
+    ]
+
+  # ✅ Step 2 - Push Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args: [
+      "push",
+      "us-central1-docker.pkg.dev/servoya-cloud-worker/cloud-run-source-deploy/servoya-cloud-worker-v2:latest"
+    ]
+
+  # ✅ Step 3 - Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    entrypoint: gcloud
+    args: [
+      "run", "deploy", "servoya-cloud-worker-v2",
+      "--image", "us-central1-docker.pkg.dev/servoya-cloud-worker/cloud-run-source-deploy/servoya-cloud-worker-v2:latest",
+      "--region", "us-central1",
+      "--allow-unauthenticated",
+      "--platform", "managed",
+      "--timeout", "300s",
+      "--memory", "2Gi",
+      "--cpu", "2",
+      "--port", "8080"
+    ]
+
+images:
+  - "us-central1-docker.pkg.dev/servoya-cloud-worker/cloud-run-source-deploy/servoya-cloud-worker-v2:latest"

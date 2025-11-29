@@ -2,7 +2,8 @@ import { runTrendEngine } from "./trendEngine_v13.js";
 import { selectProduct } from "./productSelector_v1.js";
 import { mapProductToPrompt } from "./productMapper.js";
 import { generateScript } from "./scriptEngine_v3.js";
-import { fetchAudio } from "./audioFetcher_v1.js";
+import { getAudioForNiche } from "./audioFetcher_v1.js";
+import { generateVideoFFmpeg } from "./videoEngine_ffmpeg.js";
 import { supabase } from "./supabaseClient.js";
 
 export async function runFullJob(options = {}) {

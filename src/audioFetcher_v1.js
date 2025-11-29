@@ -5,52 +5,48 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE
 );
 
-// ---------------------------------------------------
-// MAIN FUNCTION EXPECTED BY THE SERVER:
-// getAudioForNiche(niche)
-// ---------------------------------------------------
+// פונקציה חדשה כמו שהשרת צריך
 export async function getAudioForNiche(niche) {
   try {
     console.log("🎧 Fetching audio for niche:", niche);
 
-    const { data, error } = await supabase.storage
+    const { data, error } = await supabase
+      .storage
       .from("servoya-audio")
       .list(niche + "/", { limit: 50 });
 
     if (error) {
-      console.error("Supabase audio list error:", error);
+      console.error("❌ Supabase audio list error:", error);
       return null;
     }
 
     if (!data || data.length === 0) {
-      console.error("No audio in niche:", niche);
+      console.error("❌ No audio files found for niche:", niche);
       return null;
     }
 
     const fileName = data[0].name;
-    const filePath = `${niche}/${fileName}`;
+    const fullPath = `${niche}/${fileName}`;
 
-    const { data: audioFile, error: audioError } = await supabase.storage
+    const { data: fileData, error: downloadErr } = await supabase
+      .storage
       .from("servoya-audio")
-      .download(filePath);
+      .download(fullPath);
 
-    if (audioError) {
-      console.error("Supabase audio download error:", audioError);
+    if (downloadErr) {
+      console.error("❌ Supabase audio download error:", downloadErr);
       return null;
     }
 
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    console.log("🎧 Audio loaded:", fileName);
+    console.log("🎧 Loaded audio:", fullPath);
 
     return {
-      buffer,
-      fileName
+      fileName,
+      buffer: Buffer.from(await fileData.arrayBuffer())
     };
 
   } catch (err) {
-    console.error("🔥 Audio fetch error:", err.message);
+    console.error("🔥 getAudioForNiche error:", err.message);
     return null;
   }
 }

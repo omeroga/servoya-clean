@@ -1,95 +1,96 @@
 import express from "express";
-import cors from "cors";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import { exec } from "child_process";
-import { generateVideoFFmpeg } from "./src/videoEngine_ffmpeg.js";
-import { registerPipelineEndpoint } from "./src/pipelineEndpoint_v1.js";
+import dotenv from "dotenv";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Core engines
+import { runTrendJob } from "./src/trendJobRunner_v1.js";
+import { runScriptEngine } from "./src/scriptEngine_v3.js";
+import { runVideoEngine } from "./src/videoEngine_ffmpeg.js";
 
-console.log("🟢 Servoya Video Worker — Final Production Index Loaded");
+// Fetchers
+import { fetchImages } from "./src/imageFetcher_v1.js";
+import { fetchAudio } from "./src/audioFetcher_v1.js";
+
+// Intelligence
+import { mapProduct } from "./src/productMapper.js";
+import { runProductIntelligence } from "./src/productIntelligence_v2.js";
+
+// Supabase
+import { supabase } from "./src/supabaseClient.js";
+
+// Misc
+import { logPerformance } from "./src/performanceLogger.js";
+
+dotenv.config();
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: "20mb" }));
-registerPipelineEndpoint(app);
+app.use(express.json());
 
-// HEALTH CHECK
+// Healthcheck
 app.get("/health", (req, res) => {
-  res.json({ ok: true, ts: new Date().toISOString() });
+  res.json({ ok: true, status: "Servoya Cloud Worker Online" });
 });
 
-// DEPLOY WEBHOOK (GitHub → VPS)
-app.post("/deploy", (req, res) => {
-  console.log("📦 Deploy webhook received");
-
-  exec("cd /servoya && git pull", (err, stdout, stderr) => {
-    if (err) {
-      console.error("Deploy error:", err);
-      return res.status(500).send("Deploy failed");
-    }
-
-    console.log(stdout);
-
-    exec("pm2 restart servoya", () => {
-      console.log("♻️ PM2 restarted");
-    });
-
-    res.send("Deploy OK");
-  });
-});
-
-// VIDEO GENERATION ENDPOINT
+/**
+ * MAIN GENERATION ENDPOINT
+ * This is the unified Cloud Worker pipeline:
+ * 1. Fetch Trend → 2. Intelligence → 3. Map Product
+ * 4. Fetch Images → 5. Script Engine → 6. Audio → 7. Video
+ */
 app.post("/api/v2/generate/video", async (req, res) => {
   try {
-    const { prompt, niche } = req.body;
+    const niche = req.body.niche || "beauty";
 
-    if (!prompt || !niche) {
-      return res.status(400).json({ error: "Missing prompt or niche" });
-    }
+    console.log("⚡ Starting unified pipeline for niche:", niche);
 
-    console.log("🎬 Creating video:", prompt, "niche:", niche);
+    // Step 1: Trend Job (latest trend)
+    const trend = await runTrendJob(niche);
 
-    const imagesDir = path.join(__dirname, "images");
-    const audioDir = path.join(__dirname, "audio");
-    const outputDir = path.join(__dirname, "output");
+    // Step 2: Product Intelligence
+    const productData = await runProductIntelligence(trend);
 
-    const images = fs.readdirSync(imagesDir).filter(f => f.endsWith(".jpg"));
-    if (images.length < 1) {
-      return res.status(500).json({ error: "No images found" });
-    }
+    // Step 3: Product Mapping
+    const mapped = await mapProduct(productData);
 
-    const audioFiles = fs.readdirSync(audioDir).filter(f => f.endsWith(".mp3"));
-    if (audioFiles.length === 0) {
-      return res.status(500).json({ error: "No audio files found" });
-    }
+    // Step 4: Image Fetching
+    const images = await fetchImages(mapped);
 
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
-
-    const imagePath = path.join(imagesDir, images[0]);
-    const audioPath = path.join(audioDir, audioFiles[0]);
-    const outputPath = path.join(outputDir, `video_${Date.now()}.mp4`);
-
-    const result = await generateVideoFFmpeg({
-      imagePath,
-      audioPath,
-      outputPath,
-      duration: 12
+    // Step 5: Script
+    const script = await runScriptEngine({
+      trend,
+      product: mapped,
+      images
     });
 
-    res.json({ ok: true, output: outputPath, ffmpeg: result });
+    // Step 6: Audio
+    const audio = await fetchAudio(script);
 
-  } catch (error) {
-    console.error("🔥 Video generation error:", error);
-    res.status(500).json({ error: "Video generation failed" });
+    // Step 7: Video (final output)
+    const videoPath = await runVideoEngine({
+      images,
+      audio,
+      script
+    });
+
+    // Log performance (non blocking)
+    logPerformance("video_generation", {
+      niche,
+      trend: trend?.title || "",
+    });
+
+    res.json({
+      ok: true,
+      video: videoPath,
+      trend,
+      product: mapped,
+    });
+
+  } catch (err) {
+    console.error("❌ Pipeline Fatal Error:", err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// SERVER
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`🟢 Servoya Worker running on port ${PORT}`);
+// Start server
+app.listen(8080, () => {
+  console.log("🚀 Servoya Cloud Worker running on port 8080");
 });

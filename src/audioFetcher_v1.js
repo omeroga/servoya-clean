@@ -1,31 +1,34 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase Client
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE
 );
 
-export async function fetchAudioByCategory(category) {
+// ---------------------------------------------------
+// MAIN FUNCTION EXPECTED BY THE SERVER:
+// getAudioForNiche(niche)
+// ---------------------------------------------------
+export async function getAudioForNiche(niche) {
   try {
-    console.log("🎧 Fetching audio for category:", category);
+    console.log("🎧 Fetching audio for niche:", niche);
 
     const { data, error } = await supabase.storage
       .from("servoya-audio")
-      .list(category + "/", { limit: 50 });
+      .list(niche + "/", { limit: 50 });
 
     if (error) {
       console.error("Supabase audio list error:", error);
-      throw new Error("Cannot list audio files");
+      return null;
     }
 
     if (!data || data.length === 0) {
-      throw new Error("No audio files found in category: " + category);
+      console.error("No audio in niche:", niche);
+      return null;
     }
 
-    // Pick the first audio file
     const fileName = data[0].name;
-    const filePath = `${category}/${fileName}`;
+    const filePath = `${niche}/${fileName}`;
 
     const { data: audioFile, error: audioError } = await supabase.storage
       .from("servoya-audio")
@@ -33,7 +36,7 @@ export async function fetchAudioByCategory(category) {
 
     if (audioError) {
       console.error("Supabase audio download error:", audioError);
-      throw new Error("Cannot download audio");
+      return null;
     }
 
     const arrayBuffer = await audioFile.arrayBuffer();
@@ -47,7 +50,7 @@ export async function fetchAudioByCategory(category) {
     };
 
   } catch (err) {
-    console.error("🔥 Audio fetch error:", err);
-    throw err;
+    console.error("🔥 Audio fetch error:", err.message);
+    return null;
   }
 }
